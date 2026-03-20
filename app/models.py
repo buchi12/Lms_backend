@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Boolean, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -38,12 +38,14 @@ class Course(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
     created_by = Column(Integer, ForeignKey("employees.id"), nullable=True)
     is_published = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    lessons = relationship("Lesson", back_populates="course")
+    lessons = relationship("Lesson", back_populates="course", cascade="all, delete")
+    creator = relationship("Employee", foreign_keys=[created_by])
 
 class Lesson(Base):
     __tablename__ = "lessons"
@@ -51,9 +53,11 @@ class Lesson(Base):
     id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("courses.id"), nullable=False)
     title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     video_url = Column(String, nullable=True)
     pdf_url = Column(String, nullable=True)
     order = Column(Integer, default=0)
+    duration_minutes = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     course = relationship("Course", back_populates="lessons")
