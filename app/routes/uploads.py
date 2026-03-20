@@ -4,6 +4,7 @@ from app.database import get_db
 from app.models import Lesson
 from app.storage import upload_file, delete_file
 from app.dependencies import require_hr_admin
+from app.dependencies import require_hr_admin, require_employee
 
 router = APIRouter(prefix="/lessons", tags=["Uploads"])
 
@@ -127,3 +128,65 @@ def delete_pdf(
     lesson.pdf_url = None
     db.commit()
     return {"message": "PDF deleted successfully"}
+
+from app.storage import upload_file, delete_file, get_signed_url  # ← add get_signed_url
+
+# Get video signed URL for lesson
+@router.get("/{lesson_id}/video")
+def get_video(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(require_employee)  # all employees can view
+):
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    if not lesson.video_url:
+        raise HTTPException(status_code=404, detail="No video found for this lesson")
+    
+    signed_url = get_signed_url(lesson.video_url)
+    return {
+        "lesson_id": lesson_id,
+        "lesson_title": lesson.title,
+        "video_url": signed_url,
+        "expires_in": "1 hour"
+    }
+
+# Get PDF signed URL for lesson
+@router.get("/{lesson_id}/pdf")
+def get_pdf(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(require_employee)  # all employees can view
+):
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    if not lesson.pdf_url:
+        raise HTTPException(status_code=404, detail="No PDF found for this lesson")
+
+    signed_url = get_signed_url(lesson.pdf_url)
+    return {
+        "lesson_id": lesson_id,
+        "lesson_title": lesson.title,
+        "pdf_url": signed_url,
+        "expires_in": "1 hour"
+    }
+
+# Get all files for a lesson
+@router.get("/{lesson_id}/files")
+def get_lesson_files(
+    lesson_id: int,
+    db: Session = Depends(get_db),
+    current=Depends(require_employee)
+):
+    lesson = db.query(Lesson).filter(Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    return {
+        "lesson_id": lesson_id,
+        "lesson_title": lesson.title,
+        "video_url": get_signed_url(lesson.video_url) if lesson.video_url else None,
+        "pdf_url": get_signed_url(lesson.pdf_url) if lesson.pdf_url else None
+    }
